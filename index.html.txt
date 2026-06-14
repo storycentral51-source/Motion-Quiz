@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion English Quiz</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        #question {
+            text-align: center;
+            font-size: 40px;
+            padding: 20px;
+            font-weight: bold;
+        }
+
+        .answers {
+            display: flex;
+            height: 150px;
+        }
+
+        .box {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            font-weight: bold;
+            color: white;
+        }
+
+        #a { background: #4CAF50; }
+        #b { background: #F44336; }
+        #c { background: #FFC107; }
+        #d { background: #9C27B0; }
+
+        #video {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            width: 240px;
+            border-radius: 12px;
+        }
+
+        #player {
+            position: absolute;
+            bottom: 220px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: deepskyblue;
+            transition: 0.1s;
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="question"></div>
+
+    <div class="answers">
+        <div class="box" id="a"></div>
+        <div class="box" id="b"></div>
+        <div class="box" id="c"></div>
+        <div class="box" id="d"></div>
+    </div>
+
+    <div id="score">Score: 0</div>
+
+    <video id="video" autoplay muted playsinline></video>
+    <div id="player"></div>
+
+    <script>
+        const questions = [
+            { q: "Which animal is bigger?", answers: ["Elephant", "Ant", "Bee", "Mouse"], correct: 0 },
+            { q: "Which fruit is yellow?", answers: ["Apple", "Banana", "Grape", "Cherry"], correct: 1 },
+            { q: "Which one can fly?", answers: ["Dog", "Cat", "Bird", "Fish"], correct: 2 },
+            { q: "Which is a vehicle?", answers: ["Car", "Tree", "Book", "Chair"], correct: 0 }
+        ];
+
+        let score = 0;
+        let current = 0;
+        let cooldown = false;
+
+        const questionDiv = document.getElementById("question");
+        const player = document.getElementById("player");
+        const videoElement = document.getElementById('video');
+
+        function loadQuestion() {
+            if (current >= questions.length) {
+                questionDiv.innerText = "Quiz Finished!";
+                document.getElementById("a").innerText = "";
+                document.getElementById("b").innerText = "";
+                document.getElementById("c").innerText = "";
+                document.getElementById("d").innerText = "";
+                return;
+            }
+
+            const q = questions[current];
+            questionDiv.innerText = q.q;
+            document.getElementById("a").innerText = q.answers[0];
+            document.getElementById("b").innerText = q.answers[1];
+            document.getElementById("c").innerText = q.answers[2];
+            document.getElementById("d").innerText = q.answers[3];
+        }
+
+        loadQuestion();
+
+        function choose(index) {
+            if (current >= questions.length) return;
+
+            const q = questions[current];
+            if (index === q.correct) {
+                score++;
+            } else {
+                score--;
+            }
+
+            document.getElementById("score").innerText = "Score: " + score;
+            current++;
+            loadQuestion();
+        }
+
+        function movePlayer(x) {
+            if (cooldown) return; 
+
+            const width = window.innerWidth;
+            player.style.left = (x * width - 40) + "px";
+
+            if (x < 0.25) {
+                cooldown = true;
+                choose(0);
+            } else if (x < 0.5) {
+                cooldown = true;
+                choose(1);
+            } else if (x < 0.75) {
+                cooldown = true;
+                choose(2);
+            } else {
+                cooldown = true;
+                choose(3);
+            }
+
+            setTimeout(() => {
+                cooldown = false;
+            }, 2000);
+        }
+
+        const faceDetection = new FaceDetection({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+        });
+
+        faceDetection.setOptions({
+            model: 'short',
+            minDetectionConfidence: 0.5
+        });
+
+        faceDetection.onResults((results) => {
+            if (results.detections.length > 0) {
+                const box = results.detections[0].boundingBox;
+                const centerX = 1 - box.xCenter; 
+                movePlayer(centerX);
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await faceDetection.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+
+        camera.start();
+    </script>
+</body>
+</html>
